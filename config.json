@@ -1,0 +1,38 @@
+{
+    "en_repo": "%USERPROFILE%\\Documents\\GitHub\\Gakumas-Translation-Data-EN",
+    "ru_repo": "%USERPROFILE%\\Documents\\GitHub\\Gakumas-Translation-Data-RU",
+    "theme": "dark",
+    "ui_glob_patterns": [
+        "local-files/localization.json",
+        "local-files/generic.json",
+        "local-files/genericTrans/index/*.json",
+        "local-files/masterTrans/*.json"
+    ],
+    "story_glob_patterns": [
+        "local-files/resource/*.txt"
+    ],
+    "lyrics_glob_patterns": [
+        "local-files/genericTrans/lyrics/*.json"
+    ],
+    "excluded_files": [
+        "local-files/genericTrans/index/Bond_level.fmt.json",
+        "local-files/genericTrans/index/Bond_level.json",
+        "local-files/genericTrans/index/Description_Split.json",
+        "local-files/genericTrans/index/News.fmt.json",
+        "local-files/genericTrans/index/Photo.json",
+        "local-files/genericTrans/index/achievement.fmt.json",
+        "local-files/genericTrans/index/achievement.json",
+        "local-files/genericTrans/index/chara_profiles.json",
+        "local-files/genericTrans/index/maintance.json",
+        "local-files/genericTrans/index/mission.fmt.json",
+        "local-files/genericTrans/index/term.fmt.json",
+        "local-files/genericTrans/index/term.json",
+        "local-files/masterTrans/Media.json",
+        "local-files/masterTrans/MissionPass.json",
+        "local-files/masterTrans/Rule.json",
+        "local-files/genericTrans/index/test_exclude.json",
+        "local-files/genericTrans/index/media.json",
+        "local-files/genericTrans/index/ProduceSkill.json"
+    ],
+    "red_highlight_enabled": true
+}

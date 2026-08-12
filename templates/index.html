@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Translation Editor</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h2>Файлы</h2>
+      <button id="btn-collapse" title="Свернуть все">−</button>
+      <button id="btn-search" title="Поиск по всем файлам">🔍</button>
+      <button id="btn-translate" class="btn-translate" title="Переведите все файлы с помощью Google">文</button>
+      <label class="theme-toggle">
+        <input type="checkbox" id="theme-switch">
+        <span class="toggle-label"></span>
+      </label>
+    </div>
+    <div id="file-search-wrapper">
+      <input id="file-search" type="text" placeholder="Поиск файлов..." autocomplete="off">
+    </div>
+    <div id="file-tree"></div>
+  </div>
+  <div id="main">
+    <div id="git-bar">
+      <button id="btn-git-update-en" class="btn btn-blue">Обновить EN</button>
+      <button id="btn-git-update-ru" class="btn btn-blue">Обновить RU</button>
+      <button id="btn-git-save" class="btn btn-green">Сохранить изменения</button>
+    </div>
+    <div id="startup-banner" class="hidden">
+      <span id="startup-banner-text"></span>
+      <button id="startup-banner-close" class="btn btn-red" style="padding:2px 10px;font-size:12px;">OK</button>
+    </div>
+    <div id="progress-bar" class="hidden">
+      <div class="progress-fill"></div>
+    </div>
+    <div id="file-path-bar">
+      <span id="file-path"></span>
+      <div id="entry-search-wrapper">
+        <input id="entry-search" type="text" placeholder="Поиск: ключ, EN, RU, персонаж..." autocomplete="off">
+        <span id="entry-search-nav">
+          <button id="search-prev" class="search-nav-btn" title="Предыдущий">▲</button>
+          <button id="search-next" class="search-nav-btn" title="Следующий">▼</button>
+        </span>
+        <span id="entry-search-counter"></span>
+        <button id="btn-red-toggle" class="search-nav-btn" title="Переключите красную подсветку для неизмененных строк">🔴</button>
+      </div>
+    </div>
+    <div id="empty-file-banner" class="hidden" style="padding:8px 16px;background:rgba(255,165,2,0.15);border-bottom:1px solid var(--accent-orange);display:flex;align-items:center;gap:12px;font-size:13px;">
+      <span>Файл выглядит пустым (<span class="banner-path" style="font-family:monospace"></span>)</span>
+      <button id="btn-exclude" class="btn btn-orange" style="padding:4px 12px;font-size:12px;">Добавить в исключение</button>
+    </div>
+    <div id="entries-table-wrapper">
+      <table id="entries-table">
+        <thead>
+          <tr>
+            <th id="th-speaker" class="hidden">Speaker</th>
+            <th id="th-key">Key</th>
+            <th id="th-en">English</th>
+            <th id="th-ru">Russian</th>
+          </tr>
+        </thead>
+        <tbody id="entries-body"></tbody>
+      </table>
+    </div>
+    <div id="empty-state">Выберите файл для начала редактирования</div>
+  </div>
+</div>
+
+<div id="edit-modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <div class="modal-left">
+      <div id="modal-glossary">
+        <h3>Глоссарий</h3>
+        <div id="modal-glossary-list"></div>
+      </div>
+      <div id="modal-characters" class="hidden">
+        <h3>Персонажи</h3>
+        <div id="modal-characters-list"></div>
+      </div>
+    </div>
+    <div class="modal-right">
+      <div class="modal-en">
+        <h3>English</h3>
+        <div id="modal-en-text"></div>
+      </div>
+      <div class="modal-ru">
+        <h3>Russian</h3>
+        <textarea id="modal-ru-input" rows="5"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-restore" class="btn btn-orange">Восстановить оригинал</button>
+        <button id="btn-modal-translate" class="btn btn-blue">Перевод через Google</button>
+        <button id="btn-cancel" class="btn btn-red">Отмена</button>
+        <button id="btn-save" class="btn btn-green">Сохранить</button>
+      </div>
+      <div id="modal-validation" class="hidden"></div>
+    </div>
+  </div>
+</div>
+
+<div id="commit-modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content commit-modal-content">
+    <h3 class="git-modal-title">Сохранить изменения</h3>
+    <div id="commit-modal-body">
+      <label for="commit-message">Описание изменений (попадёт в название коммита):</label>
+      <textarea id="commit-message" rows="3" placeholder="Формируем описание изменений…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button id="commit-btn-cancel" class="btn btn-red">Отмена</button>
+      <button id="commit-btn-confirm" class="btn btn-green">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div id="git-modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content git-modal-content">
+    <h3 id="git-modal-title" class="git-modal-title"></h3>
+    <div id="git-modal-body">
+      <div id="git-modal-message"></div>
+      <div id="git-modal-conflicts" class="hidden"></div>
+      <button id="git-modal-toggle-details" class="btn btn-blue hidden" style="margin-top:12px;">Показать технические детали</button>
+      <pre id="git-modal-details" class="git-modal-details hidden"></pre>
+    </div>
+    <div class="modal-actions">
+      <button id="git-modal-close" class="btn btn-green">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="translate-modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content" style="max-width:460px;width:90vw;flex-direction:column;max-height:80vh;">
+    <h3 style="padding:16px 16px 0;font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--fg2);">Перевод через Google</h3>
+    <div id="translate-options" style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+      <label class="translate-check"><input type="checkbox" id="tr-ui" checked> Перевести UI</label>
+      <label class="translate-check"><input type="checkbox" id="tr-story"> Перевести Story</label>
+      <label class="translate-check"><input type="checkbox" id="tr-lyrics"> Перевести Lyrics</label>
+    </div>
+    <div id="translate-progress" style="display:none;padding:0 16px 16px;">
+      <div class="translate-progress-bar"><div class="translate-progress-fill" id="translate-progress-fill"></div></div>
+      <div id="translate-status" style="font-size:12px;color:var(--fg2);margin-top:8px;"></div>
+    </div>
+    <div id="translate-actions" style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;">
+      <button id="translate-btn-cancel" class="btn btn-red">Отмена</button>
+      <button id="translate-btn-start" class="btn btn-blue">Начать</button>
+    </div>
+  </div>
+</div>
+
+<div id="search-modal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content search-modal-content">
+    <div class="search-modal-top">
+      <input id="search-input" type="text" placeholder="Поиск по всем файлам: ключ, EN, RU, персонаж…" autocomplete="off" spellcheck="false">
+      <button id="search-modal-close" class="btn btn-red">Закрыть</button>
+    </div>
+    <div id="search-modal-status"></div>
+    <div id="search-results"></div>
+  </div>
+</div>
+<script src="/static/script.js"></script>
+</body>
+</html>
