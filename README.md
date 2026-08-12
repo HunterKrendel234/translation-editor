@@ -1,7 +1,7 @@
 # Gakumas Translation - редактор перевода
 
 
-## 1. Что нужно установить
+# 1. Что нужно установить
 
 | Что | Для чего | Windows | Mac |
 |---|---|---|---|
@@ -10,13 +10,13 @@
 
 ---
 
-## 2. Установка Python 3.13
-# Windows
-# 1 Метод.
+# 2. Установка Python 3.13
+## Windows
+### 1 Метод.
 1.  Зайдите в [MS Store](https://apps.microsoft.com/detail/9PNRBTZXMB4Z?hl=neutral&gl=US&ocid=pdpshare) и найдите Python 3.13.
 2.  Нажмите установить
 
-# 2 Метод.
+### 2 Метод.
 1.  Перейдите на https://python.org
 2.  Скачайте Python 3.13 для Windows
 3.  Важно: поставьте галочку “Add Python to PATH”
@@ -29,7 +29,7 @@ python --version
 pip --version
 ```
 
-# Установка Python на macOS
+## Установка Python на macOS
 Через Homebrew:
 ```
 brew install python
@@ -40,24 +40,24 @@ python3 --version
 pip3 --version
 ```
 
-## 3. Установка Git 
-# Windows
+# 3. Установка Git 
+## Windows
 1.  Перейдите на сайт: https://git-scm.com/download/win
 2.  Скачайте .exe и запустите установщик.
 3.  На всех шагах можно оставлять рекомендованные настройки.
 
-# Важные пункты установщика
+## Важные пункты установщика
 
 Git from the command line and also from 3rd‑party software — обязательно, чтобы Git работал из любой программы.
 Остальные параметры можно оставить по умолчанию.
 
 
-# 🍏 Установка Git на macOS
-# 1 Метод (рекомендуется): через Homebrew
+## 🍏 Установка Git на macOS
+### 1 Метод (рекомендуется): через Homebrew
 ```
 brew install git
 ```
-# 2 Метод. Через Xcode Command Line Tools
+### 2 Метод. Через Xcode Command Line Tools
 ```
 xcode-select --install
 ```
@@ -67,7 +67,7 @@ git --version
 ```
 
 
-## 4. Клонирование репозиториев
+# 4. Клонирование репозиториев
 
 Откройте терминал в папке `Documents/` и выполните:
 
@@ -79,7 +79,7 @@ git clone https://github.com/HunterKrendel234/translation-editor.git
 ```
 ---
 
-## 5. Настройка config.json в translation-editor
+# 5. Настройка config.json в translation-editor
 
 В папке редактора лежит файл `config.json`. В нём должны быть правильные пути к вашим локальным папкам EN и RU:
 
@@ -99,7 +99,7 @@ git clone https://github.com/HunterKrendel234/translation-editor.git
 ```
 ---
 
-## 6. Установка зависимостей и запуск
+# 6. Установка зависимостей и запуск
 
 Откройте терминал в папке редактора (где лежит `app.py`):
 
@@ -116,7 +116,7 @@ python app.py
 
 ---
 
-## 6. Как пользоваться интерфейсом
+# 6. Как пользоваться интерфейсом
 
 ### 6.1 Панель файлов (слева)
 - Файлы сгруппированы по категориям: **UI**, **Story** (сюжет), **Lyrics** (песни).
@@ -186,7 +186,7 @@ Git автоматически отслеживает эти изменения,
 
 ---
 
-## Частые проблемы
+# Частые проблемы
 
 **«Порт 5000 уже занят» / редактор не открывается** — закройте старый запущенный `python app.py` (Ctrl+C) и запустите заново.
 **Автоперевод пишет ошибку / стоит на месте** — Google временно ограничил запросы. Подождите 1–2 минуты и нажмите Start снова.
