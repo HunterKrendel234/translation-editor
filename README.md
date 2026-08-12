@@ -84,18 +84,14 @@ git clone https://github.com/HunterKrendel234/translation-editor.git
 В папке редактора лежит файл `config.json`. В нём должны быть правильные пути к вашим локальным папкам EN и RU:
 
 ```json
-{
   "en_repo": "%USERPROFILE%\\Documents\\Gakumas-Translation-Data-EN",
   "ru_repo": "%USERPROFILE%\\Documents\\Gakumas-Translation-Data-RU",
-}
 ```
 
 **Mac** пути выглядят так:
 ```json
-{
   "en_repo": "~\\Documents\\Gakumas-Translation-Data-EN",
   "ru_repo": "~\\Documents\\Gakumas-Translation-Data-RU",
-}
 ```
 ---
 
