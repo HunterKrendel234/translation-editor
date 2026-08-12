@@ -29,7 +29,7 @@ python --version
 pip --version
 ```
 
-## Установка Python на macOS
+## 🍏 macOS
 Через Homebrew:
 ```
 brew install python
@@ -52,7 +52,7 @@ Git from the command line and also from 3rd‑party software — обязате�
 Остальные параметры можно оставить по умолчанию.
 
 
-## 🍏 Установка Git на macOS
+## 🍏 macOS
 ### 1 Метод (рекомендуется): через Homebrew
 ```
 brew install git
