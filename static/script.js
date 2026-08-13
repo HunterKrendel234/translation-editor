@@ -691,6 +691,19 @@ function showGitResult(res) {
     detailsBtn.classList.remove("hidden");
   }
   document.getElementById("git-modal-close").textContent = res.ok ? "OK" : "Понятно";
+  const resolveBtn = document.getElementById("git-modal-resolve-conflicts");
+  const hasConflict = res.error_type === "conflict" ||
+    (res.conflict_files && res.conflict_files.length > 0);
+  if (hasConflict && typeof openConflictModal === "function") {
+    resolveBtn.classList.remove("hidden");
+    resolveBtn.onclick = () => {
+      closeGitModal();
+      openConflictModal();
+    };
+  } else {
+    resolveBtn.classList.add("hidden");
+    resolveBtn.onclick = null;
+  }
 }
 
 function setGitButtonsDisabled(disabled) {

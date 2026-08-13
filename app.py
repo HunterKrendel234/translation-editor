@@ -515,6 +515,74 @@ def conflict_file_list(repo):
                 files.append(line[3:].strip())
     return files
 
+CONFLICT_MARK_START = re.compile(r"^<<<<<<<")
+CONFLICT_MARK_MID = re.compile(r"^=======$")
+CONFLICT_MARK_END = re.compile(r"^>>>>>>>")
+
+def _strip_cr(line):
+    return line[:-1] if line.endswith("\r") else line
+
+def parse_conflict_blocks(text):
+    lines = text.split("\n")
+    blocks = []
+    i = 0
+    n = len(lines)
+    while i < n:
+        if CONFLICT_MARK_START.match(_strip_cr(lines[i])):
+            start = i
+            j = i + 1
+            head_side = []
+            while j < n and not CONFLICT_MARK_MID.match(_strip_cr(lines[j])):
+                head_side.append(lines[j])
+                j += 1
+            if j >= n:
+                break
+            j += 1
+            commit_side = []
+            while j < n and not CONFLICT_MARK_END.match(_strip_cr(lines[j])):
+                commit_side.append(lines[j])
+                j += 1
+            if j >= n:
+                break
+            end = j
+            blocks.append({
+                "id": len(blocks),
+                "start": start,
+                "end": end,
+                "mine": commit_side,
+                "remote": head_side,
+            })
+            i = end + 1
+        else:
+            i += 1
+    return lines, blocks
+
+def resolve_conflicts_in_text(lines, blocks, resolutions):
+    result = lines[:]
+    for block in sorted(blocks, key=lambda b: b["start"], reverse=True):
+        res = resolutions.get(block["id"]) or {}
+        choice = res.get("choice", "mine")
+        if choice == "remote":
+            new_lines = block["remote"]
+        elif choice == "custom":
+            new_lines = (res.get("text", "") or "").split("\n")
+        else:
+            new_lines = block["mine"]
+        result[block["start"]:block["end"] + 1] = new_lines
+    return "\n".join(result)
+
+def load_conflict_file(file_rel):
+    path = os.path.join(RU_REPO, file_rel.replace("/", os.sep))
+    if not os.path.exists(path):
+        return None, "file not found"
+    with open(path, "r", encoding="utf-8-sig") as f:
+        text = f.read()
+    _, blocks = parse_conflict_blocks(text)
+    return {
+        "rel": file_rel,
+        "blocks": [{"id": b["id"], "mine": b["mine"], "remote": b["remote"]} for b in blocks],
+    }, None
+
 def has_unpushed_commits(repo):
     if not run_git(repo, ["rev-parse", "--verify", "origin/main"])["ok"]:
         return True
@@ -558,12 +626,15 @@ def git_update_ru():
     if result["ok"]:
         return {"ok": True, "message": "RU-репозиторий успешно обновлён.", "details": result["output"]}
     err_type = result.get("error") or classify_git_failure(result.get("output", ""))
-    return {
+    resp = {
         "ok": False,
         "message": GIT_ERROR_MESSAGES.get(err_type, "Не удалось обновить RU-репозиторий. Подробности ниже."),
         "details": result.get("output", "") or (f"Код ошибки: {result.get('error')}" if result.get("error") else ""),
         "error_type": err_type,
     }
+    if err_type == "conflict":
+        resp["conflict_files"] = conflict_file_list(RU_REPO)
+    return resp
 
 def git_save_ru(message):
     mark_search_index_dirty()
@@ -1024,6 +1095,55 @@ def api_git_update_ru():
 def api_git_save():
     data = request.get_json() or {}
     return git_route_wrapper(lambda: git_save_ru(data.get("message", "")))
+
+@app.route("/api/git/conflicts", methods=["GET"])
+def api_git_conflicts():
+    def _get():
+        files = conflict_file_list(RU_REPO)
+        if not files:
+            return {"ok": True, "conflict": False, "files": []}
+        result = []
+        for rel in files:
+            data, err = load_conflict_file(rel)
+            if err:
+                result.append({"rel": rel, "error": err, "blocks": []})
+            else:
+                result.append(data)
+        return {"ok": True, "conflict": True, "files": result}
+    return git_route_wrapper(_get)
+
+@app.route("/api/git/conflicts/resolve", methods=["POST"])
+def api_git_conflicts_resolve():
+    def _resolve():
+        data = request.get_json() or {}
+        for item in data.get("files", []):
+            rel = item.get("rel", "")
+            if not rel:
+                continue
+            path = os.path.join(RU_REPO, rel.replace("/", os.sep))
+            if not os.path.exists(path):
+                continue
+            with open(path, "r", encoding="utf-8-sig") as f:
+                text = f.read()
+            lines, blocks = parse_conflict_blocks(text)
+            if not blocks:
+                continue
+            per_block = {b["id"]: item.get("blocks", {}).get(str(b["id"]), {}) for b in blocks}
+            new_text = resolve_conflicts_in_text(lines, blocks, per_block)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(new_text)
+            r_add = run_git(RU_REPO, ["add", "--", rel])
+            if not r_add["ok"]:
+                return {"ok": False, "message": "Не удалось сохранить решение для файла.", "details": r_add["output"]}
+        remaining = conflict_file_list(RU_REPO)
+        if remaining:
+            return {
+                "ok": False,
+                "message": "Не все конфликты разрешены. Остались файлы:\n" + "\n".join(remaining),
+                "remaining": remaining,
+            }
+        return {"ok": True, "message": "Все конфликты разрешены. Можно завершить сохранение."}
+    return git_route_wrapper(_resolve)
 
 @app.route("/api/git/suggest-message", methods=["GET"])
 def api_git_suggest_message():

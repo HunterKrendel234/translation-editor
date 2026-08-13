@@ -14,3 +14,5 @@ build/
 .venv/
 venv/
 .env
+conflict_test_app.py
+templates/conflict_test.html
