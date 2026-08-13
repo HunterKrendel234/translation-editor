@@ -22,7 +22,7 @@
 
 **Windows (PowerShell) / Mac (Терминал):**
 ```
-pip install flask deep-translator
+pip3 install flask deep-translator
 python app.py
 ```
 
