@@ -7,7 +7,7 @@ import subprocess
 import threading
 import time
 import webbrowser
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, redirect, request, send_from_directory
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
@@ -972,6 +972,8 @@ def run_translation_thread(categories):
 
 @app.route("/")
 def index():
+    if config.get("first_run", True):
+        return redirect("/setup")
     return send_from_directory("templates", "index.html")
 
 @app.route("/api/config", methods=["GET"])
@@ -1151,7 +1153,7 @@ def api_git_suggest_message():
         parts, changed = suggest_commit_message()
         if not parts:
             return jsonify({"ok": True, "message": "", "changed": 0})
-        message = f"Перевод: изменено строк — {changed}\n\n" + "\n\n".join(parts)
+        message = f"Перевод: изменено строк - {changed}\n\n" + "\n\n".join(parts)
         return jsonify({"ok": True, "message": message, "changed": changed})
     except Exception as e:
         return jsonify({"ok": False, "message": "", "error": str(e)})
@@ -1205,9 +1207,290 @@ def api_translate_text():
         return jsonify({"ok": False, "error": str(e)})
     return jsonify({"ok": True, "text": result})
 
+def detect_os():
+    if os.name == "nt":
+        return "windows"
+    return "macos"
+
+@app.route("/setup")
+def setup_page():
+    if not config.get("first_run", True):
+        return redirect("/")
+    return send_from_directory("templates", "setup.html")
+
+@app.route("/api/setup/status")
+def api_setup_status():
+    return jsonify({
+        "first_run": config.get("first_run", True),
+        "os": detect_os(),
+        "en_repo": config.get("en_repo", ""),
+        "ru_repo": config.get("ru_repo", ""),
+    })
+
+@app.route("/api/setup/check-git")
+def api_setup_check_git():
+    git_path = find_git_executable()
+    cmd_str = (git_path or "git") + " --version"
+    if git_path:
+        try:
+            r = subprocess.run([git_path, "--version"], capture_output=True, text=True, timeout=10, encoding="utf-8", errors="replace")
+            ver = r.stdout.strip() if r.returncode == 0 else ""
+            return jsonify({"found": True, "path": git_path, "version": ver, "commands": [{"cmd": cmd_str, "ok": r.returncode == 0, "output": ver}]})
+        except Exception:
+            return jsonify({"found": True, "path": git_path, "version": "", "commands": [{"cmd": cmd_str, "ok": True, "output": ""}]})
+    return jsonify({"found": False, "commands": [{"cmd": cmd_str, "ok": False, "output": "not found"}]})
+
+@app.route("/api/setup/browse-dir")
+def api_setup_browse_dir():
+    path = request.args.get("path", "").strip()
+    if not path:
+        path = os.path.expanduser("~")
+    path = os.path.expandvars(os.path.expanduser(path))
+    if not os.path.isdir(path):
+        path = os.path.expanduser("~")
+    entries = []
+    try:
+        for name in sorted(os.listdir(path)):
+            full = os.path.join(path, name)
+            if os.path.isdir(full) and not name.startswith("."):
+                entries.append(name)
+    except PermissionError:
+        pass
+    parent = os.path.dirname(path)
+    if parent == path:
+        parent = ""
+    return jsonify({
+        "path": path,
+        "parent": parent,
+        "dirs": entries,
+    })
+
+@app.route("/api/setup/mkdir", methods=["POST"])
+def api_setup_mkdir():
+    data = request.get_json() or {}
+    parent = (data.get("parent") or "").strip()
+    name = (data.get("name") or "").strip()
+    if not parent or not name:
+        return jsonify({"ok": False, "error": "missing parent or name"})
+    parent_expanded = os.path.expandvars(os.path.expanduser(parent))
+    if not os.path.isdir(parent_expanded):
+        return jsonify({"ok": False, "error": "parent directory does not exist"})
+    new_path = os.path.join(parent_expanded, name)
+    if os.path.exists(new_path):
+        return jsonify({"ok": False, "error": "directory already exists"})
+    try:
+        os.makedirs(new_path)
+        return jsonify({"ok": True, "path": new_path})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.route("/api/setup/set-workspace", methods=["POST"])
+def api_setup_set_workspace():
+    data = request.get_json() or {}
+    workspace = (data.get("workspace") or "").strip()
+    if not workspace or not os.path.isdir(workspace):
+        return jsonify({"ok": False, "error": "invalid path"})
+    home = os.path.expanduser("~")
+    os_name = detect_os()
+    if workspace.startswith(home):
+        if os_name == "windows":
+            rel = "%USERPROFILE%\\" + workspace[len(home):].lstrip("\\").replace("/", "\\")
+        else:
+            rel = "~/" + workspace[len(home):].lstrip("/")
+    else:
+        rel = workspace.replace("/", "\\") if os_name == "windows" else workspace
+    en_repo = rel + "\\Gakumas-Translation-Data-EN" if os_name == "windows" else rel + "/Gakumas-Translation-Data-EN"
+    ru_repo = rel + "\\Gakumas-Translation-Data-RU" if os_name == "windows" else rel + "/Gakumas-Translation-Data-RU"
+    config["en_repo"] = en_repo
+    config["ru_repo"] = ru_repo
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=4)
+    return jsonify({"ok": True, "en_repo": en_repo, "ru_repo": ru_repo})
+
+@app.route("/api/setup/check-repos")
+def api_setup_check_repos():
+    en = config.get("en_repo", "")
+    ru = config.get("ru_repo", "")
+    en_expanded = os.path.expandvars(os.path.expanduser(en))
+    ru_expanded = os.path.expandvars(os.path.expanduser(ru))
+    en_exists = os.path.isdir(os.path.join(en_expanded, ".git"))
+    ru_exists = os.path.isdir(os.path.join(ru_expanded, ".git"))
+    return jsonify({
+        "en_exists": en_exists,
+        "ru_exists": ru_exists,
+        "en_path": en_expanded,
+        "ru_path": ru_expanded,
+    })
+
+@app.route("/api/setup/clone", methods=["POST"])
+def api_setup_clone():
+    data = request.get_json() or {}
+    repo = data.get("repo")
+    workspace = data.get("workspace", "")
+    if repo not in ("en", "ru"):
+        return jsonify({"ok": False, "error": "Invalid repo parameter"})
+    if not workspace:
+        home = os.path.expanduser("~")
+        workspace = os.path.join(home, "Documents")
+    git_path = find_git_executable() or "git"
+    if repo == "en":
+        url = "https://github.com/NatsumeLS/Gakumas-Translation-Data-EN.git"
+        target = os.path.join(workspace, "Gakumas-Translation-Data-EN")
+    else:
+        url = "https://github.com/HunterKrendel234/Gakumas-Translation-Data-RU.git"
+        target = os.path.join(workspace, "Gakumas-Translation-Data-RU")
+    os.makedirs(workspace, exist_ok=True)
+    clone_cmd = git_path + " clone " + url + " " + target
+    if os.path.isdir(os.path.join(target, ".git")):
+        home = os.path.expanduser("~")
+        cfg_key = "en_repo" if repo == "en" else "ru_repo"
+        if detect_os() == "windows":
+            rel = target.replace(home, "~").replace("/", "\\")
+        else:
+            rel = target.replace(home, "~")
+        config[cfg_key] = rel
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(config, f, ensure_ascii=False, indent=4)
+        return jsonify({"ok": True, "path": target, "already_exists": True, "commands": [{"cmd": clone_cmd, "ok": True, "output": "(уже существует)"}]})
+    try:
+        r = subprocess.run(
+            [git_path, "clone", url, target],
+            capture_output=True, text=True, timeout=300,
+            encoding="utf-8", errors="replace"
+        )
+        if r.returncode == 0:
+            home = os.path.expanduser("~")
+            cfg_key = "en_repo" if repo == "en" else "ru_repo"
+            if detect_os() == "windows":
+                rel = target.replace(home, "~").replace("/", "\\")
+            else:
+                rel = target.replace(home, "~")
+            config[cfg_key] = rel
+            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(config, f, ensure_ascii=False, indent=4)
+            return jsonify({"ok": True, "path": target, "output": r.stdout.strip(), "commands": [{"cmd": clone_cmd, "ok": True, "output": r.stdout.strip()[:300]}]})
+        return jsonify({"ok": False, "error": r.stderr.strip() or r.stdout.strip() or "Clone failed", "commands": [{"cmd": clone_cmd, "ok": False, "output": (r.stderr.strip() or r.stdout.strip())[:300]}]})
+    except subprocess.TimeoutExpired:
+        return jsonify({"ok": False, "error": "Clone timed out", "commands": [{"cmd": clone_cmd, "ok": False, "output": "timeout"}]})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "commands": [{"cmd": clone_cmd, "ok": False, "output": str(e)}]})
+
+@app.route("/api/setup/genkey", methods=["POST"])
+def api_setup_genkey():
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip()
+    if not email or "@" not in email:
+        return jsonify({"ok": False, "error": "Invalid email"})
+    home = os.path.expanduser("~")
+    ssh_dir = os.path.join(home, ".ssh")
+    key_path = os.path.join(ssh_dir, "id_ed25519")
+    os.makedirs(ssh_dir, exist_ok=True)
+    already_existed = os.path.isfile(key_path)
+    cmds = []
+    if not already_existed:
+        os_name = detect_os()
+        git_path = find_git_executable() or "git"
+        try:
+            ssh_keygen = shutil.which("ssh-keygen")
+            if not ssh_keygen:
+                ssh_exec = os.path.join(os.path.dirname(git_path), "..", "usr", "bin", "ssh-keygen.exe")
+                ssh_exec = os.path.normpath(ssh_exec)
+                if os.path.isfile(ssh_exec):
+                    ssh_keygen = ssh_exec
+            if ssh_keygen:
+                keygen_cmd = ssh_keygen + " -t ed25519 -C " + email + " -f " + key_path + ' -N ""'
+                r = subprocess.run(
+                    [ssh_keygen, "-t", "ed25519", "-C", email, "-f", key_path, "-N", ""],
+                    capture_output=True, text=True, timeout=30,
+                    encoding="utf-8", errors="replace"
+                )
+                cmds.append({"cmd": keygen_cmd, "ok": r.returncode == 0, "output": r.stderr.strip()[:300] if r.returncode != 0 else "done"})
+                if r.returncode != 0:
+                    return jsonify({"ok": False, "error": r.stderr.strip() or "ssh-keygen failed", "commands": cmds})
+            else:
+                return jsonify({"ok": False, "error": "ssh-keygen not found", "commands": cmds})
+        except subprocess.TimeoutExpired:
+            return jsonify({"ok": False, "error": "ssh-keygen timed out", "commands": cmds})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e), "commands": cmds})
+    pub_path = key_path + ".pub"
+    if not os.path.isfile(pub_path):
+        return jsonify({"ok": False, "error": "Public key file not found after generation"})
+    with open(pub_path, "r", encoding="utf-8") as f:
+        pub_key = f.read().strip()
+    os_name = detect_os()
+    if os_name == "windows":
+        clip_cmd = "Set-Clipboard"
+        escaped = pub_key.replace("'", "''")
+        try:
+            subprocess.run(
+                ["powershell", "-NoProfile", "-Command", f"Set-Clipboard -Value '{escaped}'"],
+                timeout=5, capture_output=True
+            )
+            copied = True
+            cmds.append({"cmd": clip_cmd, "ok": True, "output": "copied"})
+        except Exception:
+            copied = False
+            cmds.append({"cmd": clip_cmd, "ok": False, "output": "failed"})
+    else:
+        try:
+            subprocess.run(["pbcopy"], input=pub_key.encode("utf-8"), timeout=5)
+            copied = True
+            cmds.append({"cmd": clip_cmd, "ok": True, "output": "copied"})
+        except Exception:
+            copied = False
+            cmds.append({"cmd": clip_cmd, "ok": False, "output": "failed"})
+    return jsonify({
+        "ok": True,
+        "public_key": pub_key,
+        "copied_to_clipboard": copied,
+        "already_existed": already_existed,
+        "commands": cmds,
+    })
+
+@app.route("/api/setup/test-ssh")
+def api_setup_test_ssh():
+    git_path = find_git_executable() or "git"
+    ssh_cmd = os.path.join(os.path.dirname(git_path), "..", "usr", "bin", "ssh.exe") if detect_os() == "windows" else "ssh"
+    if detect_os() == "windows" and not os.path.isfile(os.path.normpath(ssh_cmd)):
+        ssh_cmd = shutil.which("ssh") or "ssh"
+    ssh_cmd_str = ssh_cmd + " -T -o StrictHostKeyChecking=accept-new git@github.com"
+    try:
+        r = subprocess.run(
+            [ssh_cmd, "-T", "-o", "StrictHostKeyChecking=accept-new", "git@github.com"],
+            capture_output=True, text=True, timeout=15,
+            encoding="utf-8", errors="replace"
+        )
+        output = (r.stdout or "") + (r.stderr or "")
+        cmds = [{"cmd": ssh_cmd_str, "ok": "successfully authenticated" in output.lower(), "output": output.strip()[:300]}]
+        if "successfully authenticated" in output.lower():
+            return jsonify({"ok": True, "message": output.strip(), "commands": cmds})
+        return jsonify({"ok": False, "message": output.strip() or "SSH connection failed", "commands": cmds})
+    except FileNotFoundError:
+        return jsonify({"ok": False, "error": "ssh executable not found", "commands": [{"cmd": ssh_cmd_str, "ok": False, "output": "not found"}]})
+    except subprocess.TimeoutExpired:
+        return jsonify({"ok": False, "error": "SSH connection timed out", "commands": [{"cmd": ssh_cmd_str, "ok": False, "output": "timeout"}]})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "commands": [{"cmd": ssh_cmd_str, "ok": False, "output": str(e)}]})
+
+@app.route("/api/setup/finalize", methods=["POST"])
+def api_setup_finalize():
+    global EN_REPO, RU_REPO, EXCLUDED_FILES
+    config["first_run"] = False
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=4)
+    EN_REPO = os.path.expandvars(os.path.expanduser(config["en_repo"]))
+    RU_REPO = os.path.expandvars(os.path.expanduser(config["ru_repo"]))
+    EXCLUDED_FILES = set(config.get("excluded_files", []))
+    return jsonify({"ok": True})
+
 if __name__ == "__main__":
+    is_first_run = config.get("first_run", True)
     if not os.environ.get("WERKZEUG_RUN_MAIN"):
-        threading.Thread(target=startup_git_pull_en, daemon=True).start()
-        threading.Thread(target=get_search_index, daemon=True).start()
-        webbrowser.open("http://127.0.0.1:5000")
+        if is_first_run:
+            webbrowser.open("http://127.0.0.1:5000/setup")
+        else:
+            threading.Thread(target=startup_git_pull_en, daemon=True).start()
+            threading.Thread(target=get_search_index, daemon=True).start()
+            webbrowser.open("http://127.0.0.1:5000")
     app.run(debug=True, port=5000, use_reloader=False)

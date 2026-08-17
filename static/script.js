@@ -900,7 +900,7 @@ function translateInfoText(st) {
   if (st.total <= 0) return "";
   let info = `Файл ${st.done}/${st.total}`;
   if ((st.current_file_total || 0) > 0) info += ` · Строки ${st.current_file_done}/${st.current_file_total}`;
-  if (st.current_file) info += ` — ${st.current_file}`;
+  if (st.current_file) info += ` - ${st.current_file}`;
   return info;
 }
 

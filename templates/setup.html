@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Translation Editor - Первый запуск</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/setup.css">
+</head>
+<body>
+<div id="setup-app">
+  <aside id="setup-sidebar">
+    <div id="setup-logo">
+      <span id="setup-logo-text">Настройка</span>
+    </div>
+    <nav id="setup-steps">
+      <button class="setup-step active" data-step="0">
+        <span class="step-num">1</span>
+        <span class="step-label">Git</span>
+        <span class="step-status"></span>
+      </button>
+      <button class="setup-step" data-step="1">
+        <span class="step-num">2</span>
+        <span class="step-label">Репозитории</span>
+        <span class="step-status"></span>
+      </button>
+      <button class="setup-step" data-step="2">
+        <span class="step-num">3</span>
+        <span class="step-label">SSH / GitHub</span>
+        <span class="step-status"></span>
+      </button>
+      <button class="setup-step" data-step="3">
+        <span class="step-num">4</span>
+        <span class="step-label">Завершение</span>
+        <span class="step-status"></span>
+      </button>
+    </nav>
+  </aside>
+
+  <main id="setup-main">
+    <!-- Step 0: Git -->
+    <section class="setup-panel" data-step="0">
+      <div class="panel-content">
+        <h1>Проверка Git</h1>
+        <p class="panel-desc">Git нужен для работы с репозиториями переводов.</p>
+        <div id="git-check-status" class="check-status"></div>
+        <div id="git-instructions" class="hidden">
+          <p>Git не найден. Установите его:</p>
+          <div id="git-install-windows" class="install-block hidden">
+            <h3>Windows</h3>
+            <ol>
+              <li>Скачайте установщик <strong>Git for Windows/x64 Setup</strong>: <a href="https://git-scm.com/download/win" target="_blank" class="link-inline">git-scm.com/download/win</a></li>
+              <li>Запустите .exe и нажимайте <strong>Next</strong> на каждом шаге</li>
+            </ol>
+          </div>
+          <div id="git-install-macos" class="install-block hidden">
+            <h3>macOS</h3>
+            <p>Откройте Терминал и выполните:</p>
+            <div class="code-block">
+              <code>brew install git</code>
+              <button class="btn-copy" onclick="copyCode(this)" title="Копировать">Копировать</button>
+            </div>
+          </div>
+          <button id="btn-check-git" class="btn btn-blue" style="margin-top:16px;">Проверить ещё раз</button>
+        </div>
+      </div>
+      <div class="panel-nav">
+        <div></div>
+        <button id="btn-next-0" class="btn btn-blue btn-next" disabled>Далее &rarr;</button>
+      </div>
+    </section>
+
+    <!-- Step 1: Repos -->
+    <section class="setup-panel hidden" data-step="1">
+      <div class="panel-content">
+        <h1>Репозитории переводов</h1>
+        <p class="panel-desc">Нужно скачать два репозитория с данными переводов.</p>
+        <div id="repos-check-status" class="check-status"></div>
+        <div id="repos-select" class="hidden">
+          <p>Выберите папку, куда будут скачаны репозитории (по умолчанию ~/Documents):</p>
+          <div class="workspace-row">
+            <input id="workspace-path" type="text" class="input-field" placeholder="Путь к рабочей папке...">
+            <button id="btn-confirm-workspace" class="btn btn-blue" title="Применить путь">&#10003;</button>
+            <button id="btn-browse-workspace" class="btn btn-blue">Выбрать</button>
+          </div>
+        </div>
+        <div id="repos-actions" class="hidden">
+          <div class="repo-card" id="repo-en-card">
+            <div class="repo-info">
+              <span class="repo-name">EN - Исходные данные</span>
+              <span class="repo-detail" id="repo-en-detail"></span>
+            </div>
+            <button id="btn-clone-en" class="btn btn-blue btn-clone">Скачать EN</button>
+            <span class="repo-check-icon hidden" id="repo-en-check">&#10003;</span>
+          </div>
+          <div class="repo-card" id="repo-ru-card">
+            <div class="repo-info">
+              <span class="repo-name">RU - Данные перевода</span>
+              <span class="repo-detail" id="repo-ru-detail"></span>
+            </div>
+            <button id="btn-clone-ru" class="btn btn-blue btn-clone">Скачать RU</button>
+            <span class="repo-check-icon hidden" id="repo-ru-check">&#10003;</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel-nav">
+        <button id="btn-back-1" class="btn btn-back">&larr; Назад</button>
+        <button id="btn-next-1" class="btn btn-blue btn-next" disabled>Далее &rarr;</button>
+      </div>
+    </section>
+
+    <!-- Step 2: SSH -->
+    <section class="setup-panel hidden" data-step="2">
+      <div class="panel-content">
+        <h1>Привязка GitHub (SSH)</h1>
+        <p class="panel-desc">Для отправки изменений нужно настроить SSH-ключ и привязать его к вашему аккаунту GitHub.</p>
+
+        <div id="ssh-email-section">
+          <label for="ssh-email" class="input-label">Введите email от вашего аккаунта GitHub:</label>
+          <div class="workspace-row">
+            <input id="ssh-email" type="email" class="input-field" placeholder="your-email@example.com">
+            <button id="btn-gen-key" class="btn btn-blue">Создать ключ</button>
+          </div>
+        </div>
+
+        <div id="ssh-key-result" class="hidden">
+          <div class="info-box">
+            <p id="ssh-key-message"></p>
+          </div>
+          <div id="ssh-pubkey-section" class="hidden">
+            <label class="input-label">Ваш публичный ключ (скопирован в буфер обмена):</label>
+            <div class="code-block pubkey-block">
+              <code id="ssh-pubkey-text"></code>
+              <button class="btn-copy" onclick="copyPubKey()" title="Копировать">Копировать</button>
+            </div>
+            <div class="instruction-box">
+              <h3>Теперь добавьте ключ на GitHub:</h3>
+              <ol>
+                <li>Откройте <a href="https://github.com/settings/keys" target="_blank" class="link-inline">github.com/settings/keys</a></li>
+                <li>Нажмите <strong>New SSH key</strong></li>
+                <li><strong>Title:</strong> любое имя (например: <code>my pc</code>)</li>
+                <li><strong>Key type:</strong> <code>Authentication Key</code></li>
+                <li>В поле <strong>Key</strong> вставьте скопированный ключ</li>
+                <li>Нажмите <strong>Add SSH key</strong></li>
+              </ol>
+            </div>
+          </div>
+        </div>
+
+        <div id="ssh-test-section" class="hidden">
+          <button id="btn-test-ssh" class="btn btn-blue" style="margin-top:16px;">Проверить подключение</button>
+          <div id="ssh-test-result" class="check-status" style="margin-top:12px;"></div>
+        </div>
+      </div>
+      <div class="panel-nav">
+        <button id="btn-back-2" class="btn btn-back">&larr; Назад</button>
+        <button id="btn-next-2" class="btn btn-blue btn-next" disabled>Далее &rarr;</button>
+      </div>
+    </section>
+
+    <!-- Step 3: Finish -->
+    <section class="setup-panel hidden" data-step="3">
+      <div class="panel-content">
+        <h1>Настройка завершена!</h1>
+        <p class="panel-desc">Всё готово. Теперь можно начинать работу с редактором переводов.</p>
+        <div class="finish-summary">
+          <div class="finish-item" id="finish-git">
+            <span class="finish-icon">&#10003;</span>
+            <span>Git</span>
+          </div>
+          <div class="finish-item" id="finish-repos">
+            <span class="finish-icon">&#10003;</span>
+            <span>Репозитории</span>
+          </div>
+          <div class="finish-item" id="finish-ssh">
+            <span class="finish-icon">&#10003;</span>
+            <span>SSH / GitHub</span>
+          </div>
+        </div>
+        <button id="btn-go-editor" class="btn btn-green btn-go">Перейти в редактор</button>
+      </div>
+      <div class="panel-nav">
+        <button id="btn-back-3" class="btn btn-back">&larr; Назад</button>
+        <div></div>
+      </div>
+    </section>
+  </main>
+
+  <aside id="setup-log">
+    <div id="setup-log-header">
+      <span>Действия программы</span>
+      <button id="btn-clear-log" class="btn-log-action" title="Очистить">&times;</button>
+    </div>
+    <div id="setup-log-body"></div>
+  </aside>
+</div>
+<div id="dir-picker-modal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Выберите папку</span>
+      <button id="dir-picker-close" class="modal-close">&times;</button>
+    </div>
+    <div class="modal-path" id="dir-picker-current"></div>
+    <div class="dir-list" id="dir-picker-list"></div>
+    <div class="modal-footer">
+      <button id="dir-picker-up" class="btn" disabled>Наверх</button>
+      <div class="modal-footer-right">
+        <div class="create-folder-row" id="create-folder-row">
+          <button id="dir-picker-mkdir" class="btn">Создать папку</button>
+          <input id="dir-picker-mkdir-name" type="text" class="input-field input-mkdir hidden" placeholder="Имя папки...">
+          <button id="dir-picker-mkdir-ok" class="btn btn-blue btn-mkdir-ok hidden">&#10003;</button>
+        </div>
+        <button id="dir-picker-select" class="btn btn-blue">Выбрать эту папку</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/static/setup.js"></script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 {
-    "en_repo": "%USERPROFILE%\\Documents\\GitHub\\Gakumas-Translation-Data-EN",
-    "ru_repo": "%USERPROFILE%\\Documents\\GitHub\\Gakumas-Translation-Data-RU",
+    "en_repo": "%USERPROFILE%\\Documents\\Gakumas-Translation-Data-EN",
+    "ru_repo": "%USERPROFILE%\\Documents\\Gakumas-Translation-Data-RU",
+    "first_run": true,
     "theme": "dark",
     "ui_glob_patterns": [
         "local-files/localization.json",
