@@ -1016,6 +1016,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("btn-cancel").addEventListener("click", closeEditor);
   document.getElementById("btn-restore").addEventListener("click", restoreOriginal);
   document.getElementById("btn-collapse").addEventListener("click", collapseAll);
+  document.getElementById("btn-update").addEventListener("click", async () => {
+    if (!confirm("Программа будет закрыта для обновления. Продолжить?")) return;
+    try {
+      await apiPost("/api/update");
+    } catch (_) {}
+  });
   document.getElementById("btn-exclude").addEventListener("click", excludeCurrentFile);
   document.getElementById("btn-save").addEventListener("click", saveEdit);
   document.getElementById("btn-modal-translate").addEventListener("click", translateCurrentEntry);

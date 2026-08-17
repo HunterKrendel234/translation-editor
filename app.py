@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import sys
 import glob as glob_mod
 import shutil
 import subprocess
@@ -1097,6 +1098,18 @@ def api_git_update_ru():
 def api_git_save():
     data = request.get_json() or {}
     return git_route_wrapper(lambda: git_save_ru(data.get("message", "")))
+
+@app.route("/api/update", methods=["POST"])
+def api_update():
+    updater = os.path.join(os.path.dirname(os.path.abspath(__file__)), "updater.py")
+    if not os.path.exists(updater):
+        return jsonify({"ok": False, "error": "updater.py not found"}), 404
+    subprocess.Popen([sys.executable, updater], cwd=os.path.dirname(os.path.abspath(__file__)))
+    def _shutdown():
+        time.sleep(1)
+        os._exit(0)
+    threading.Thread(target=_shutdown, daemon=True).start()
+    return jsonify({"ok": True})
 
 @app.route("/api/git/conflicts", methods=["GET"])
 def api_git_conflicts():

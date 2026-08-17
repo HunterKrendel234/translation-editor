@@ -76,7 +76,8 @@ body {
 }
 
 #btn-collapse,
-#btn-search {
+#btn-search,
+#btn-update {
   background: none;
   border: 1px solid var(--border);
   color: var(--fg2);
@@ -88,7 +89,8 @@ body {
 }
 
 #btn-collapse:hover,
-#btn-search:hover {
+#btn-search:hover,
+#btn-update:hover {
   color: var(--fg);
   border-color: var(--fg2);
 }
