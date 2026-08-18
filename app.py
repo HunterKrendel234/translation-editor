@@ -284,21 +284,24 @@ def load_resource_entries_robust(file_rel):
         with open(ru_path, "r", encoding="utf-8-sig") as f:
             ru_text = f.read()
     entries = []
-    block_re = re.compile(r"(\[message[^\]]*?\btext=)(.*?)(?=\s+[A-Za-z_][A-Za-z0-9_]*=|])", re.S)
-    name_re = re.compile(r"\bname=([^\]]+?)(?:\s+\S+=|])")
-    en_blocks = list(block_re.finditer(en_text))
-    ru_blocks = list(block_re.finditer(ru_text))
-    for i, m in enumerate(en_blocks):
-        block_start = en_text.count("\n", 0, m.start())
-        block_line = en_text.rsplit("\n", 1)[0] if False else ""
-        header_start = en_text.rfind("[message", 0, m.start())
-        header_end = m.start(2)
-        header = en_text[header_start:header_end] if header_start != -1 else en_text[m.start():header_end]
-        speaker = name_re.search(header)
+    text_re = re.compile(r"(\btext=)(.*?)(?=\s+[A-Za-z_][A-Za-z0-9_]*=|])", re.S)
+    name_re = re.compile(r"\[message[^\]]*?\bname=([^\]]+?)(?:\s+\S+=|])")
+    en_by_line = {}
+    ru_by_line = {}
+    for m in text_re.finditer(en_text):
+        li = en_text.count("\n", 0, m.start())
+        en_by_line.setdefault(li, []).append(m.group(2))
+    for m in text_re.finditer(ru_text):
+        li = ru_text.count("\n", 0, m.start())
+        ru_by_line.setdefault(li, []).append(m.group(2))
+    for i, line in enumerate(en_text.split("\n")):
+        speaker = name_re.search(line)
         speaker = speaker.group(1).strip() if speaker else ""
-        ru_val = ru_blocks[i].group(2) if i < len(ru_blocks) else ""
-        key = f"line_{block_start}"
-        entries.append({"key": key, "en": m.group(2), "ru": ru_val, "speaker": speaker, "line_index": block_start, "text_index": 0})
+        en_matches = en_by_line.get(i, [])
+        ru_matches = ru_by_line.get(i, [])
+        for text_index, en_val in enumerate(en_matches):
+            key = f"line_{i}" if text_index == 0 else f"line_{i}#{text_index}"
+            entries.append({"key": key, "en": en_val, "ru": ru_matches[text_index] if text_index < len(ru_matches) else "", "speaker": speaker, "line_index": i, "text_index": text_index})
     return entries, None
 
 def update_json_entry(file_rel, key, ru_value):
@@ -389,24 +392,21 @@ def update_resource_entry(file_rel, line_index, ru_value, text_index=0):
         os.makedirs(ru_dir)
     if os.path.exists(ru_path):
         with open(ru_path, "r", encoding="utf-8") as f:
-            ru_text = f.read()
+            ru_lines = f.read().split("\n")
     else:
         en_path = os.path.join(EN_REPO, file_rel.replace("/", os.sep))
         with open(en_path, "r", encoding="utf-8") as f:
-            ru_text = f.read()
-    RESOURCE_TEXT_RE_SAVE = re.compile(r"(\[message[^\]]*?\btext=)(.*?)(?=\s+[A-Za-z_][A-Za-z0-9_]*=|])", re.S)
+            ru_lines = f.read().split("\n")
+    RESOURCE_TEXT_RE_SAVE = re.compile(r"(\btext=)(.*?)(?=\s+[A-Za-z_][A-Za-z0-9_]*=|])")
     ru_value = ru_value.replace("\\\\", "\\")
-    matches = list(RESOURCE_TEXT_RE_SAVE.finditer(ru_text))
-    target = None
-    for m in matches:
-        li = ru_text.count("\n", 0, m.start())
-        if li == line_index:
-            target = m
-            break
-    if target is not None:
-        ru_text = ru_text[:target.start()] + target.group(1) + ru_value + ru_text[target.end():]
+    if 0 <= line_index < len(ru_lines):
+        matches = list(RESOURCE_TEXT_RE_SAVE.finditer(ru_lines[line_index]))
+        idx = text_index if 0 <= text_index < len(matches) else 0
+        if matches:
+            m = matches[idx]
+            ru_lines[line_index] = ru_lines[line_index][:m.start()] + m.group(1) + ru_value + ru_lines[line_index][m.end():]
     with open(ru_path, "w", encoding="utf-8") as f:
-        f.write(ru_text)
+        f.write("\n".join(ru_lines))
     return True
 
 SEARCH_LOCK = threading.Lock()
