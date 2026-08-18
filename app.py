@@ -149,6 +149,35 @@ def get_files_by_category():
         result[cat].sort(key=lambda x: x["rel"])
     return {"UI": result["UI"], "Story": result["Story"], "Lyrics": result["Lyrics"]}
 
+def _resolve_pk_path(obj, path):
+    parts = path.split(".")
+    cur = obj
+    for p in parts:
+        if isinstance(cur, dict) and p in cur:
+            cur = cur[p]
+        else:
+            return ""
+    return cur
+
+
+def _find_nested_array(pk):
+    for p in pk:
+        if "." in p:
+            return p.split(".")[0]
+    return None
+
+
+def _build_flat_pk(pk, top_el, sub_el=None):
+    parts = []
+    for p in pk:
+        if "." in p:
+            _, sub_field = p.split(".", 1)
+            parts.append(str((sub_el or {}).get(sub_field, "")))
+        else:
+            parts.append(str(top_el.get(p, "")))
+    return tuple(parts)
+
+
 def load_json_entries(file_rel):
     en_path = os.path.join(EN_REPO, file_rel.replace("/", os.sep))
     ru_path = os.path.join(RU_REPO, file_rel.replace("/", os.sep))
@@ -163,24 +192,48 @@ def load_json_entries(file_rel):
     entries = []
     if is_mastertrans(en_data):
         pk = (en_data.get("rules") or {}).get("primaryKeys") or ["id"]
+        nested_arr = _find_nested_array(pk)
         ru_list = ru_data.get("data", []) if isinstance(ru_data, dict) else []
+
         ru_by_pk = {}
         for el in ru_list:
-            if isinstance(el, dict):
-                ru_by_pk[tuple(str(el.get(p, "")) for p in pk)] = el
+            if not isinstance(el, dict):
+                continue
+            if nested_arr and isinstance(el.get(nested_arr), list):
+                for sub in el[nested_arr]:
+                    if isinstance(sub, dict):
+                        ru_by_pk[_build_flat_pk(pk, el, sub)] = sub
+            else:
+                ru_by_pk[_build_flat_pk(pk, el)] = el
+
         for el in en_data.get("data", []):
             if not isinstance(el, dict):
                 continue
-            key_parts = tuple(str(el.get(p, "")) for p in pk)
-            rid = " / ".join(key_parts)
-            ru_el = ru_by_pk.get(key_parts, {})
-            for field in MASTERTRANS_ALLOWED_FIELDS:
-                val = el.get(field)
-                if not isinstance(val, str) or not val:
-                    continue
-                ru_val = ru_el.get(field)
-                entries.append({"key": f"{rid} :: {field}", "en": val,
-                                "ru": ru_val if isinstance(ru_val, str) else "", "field": field})
+            if nested_arr and isinstance(el.get(nested_arr), list):
+                for sub in el[nested_arr]:
+                    if not isinstance(sub, dict):
+                        continue
+                    kp = _build_flat_pk(pk, el, sub)
+                    rid = " / ".join(kp)
+                    ru_sub = ru_by_pk.get(kp, {})
+                    for field in MASTERTRANS_ALLOWED_FIELDS:
+                        val = sub.get(field)
+                        if not isinstance(val, str) or not val:
+                            continue
+                        ru_val = ru_sub.get(field)
+                        entries.append({"key": f"{rid} :: {field}", "en": val,
+                                        "ru": ru_val if isinstance(ru_val, str) else "", "field": field})
+            else:
+                kp = _build_flat_pk(pk, el)
+                rid = " / ".join(kp)
+                ru_el = ru_by_pk.get(kp, {})
+                for field in MASTERTRANS_ALLOWED_FIELDS:
+                    val = el.get(field)
+                    if not isinstance(val, str) or not val:
+                        continue
+                    ru_val = ru_el.get(field)
+                    entries.append({"key": f"{rid} :: {field}", "en": val,
+                                    "ru": ru_val if isinstance(ru_val, str) else "", "field": field})
     else:
         for k, v in en_data.items():
             if not isinstance(v, str) or not v:
@@ -236,15 +289,24 @@ def update_json_entry(file_rel, key, ru_value):
             with open(en_path, "r", encoding="utf-8") as f:
                 ru_data = json.load(f)
         pk = (ru_data.get("rules") or {}).get("primaryKeys") or ["id"]
-        pk_vals = [p.strip() for p in rid.split(" / ")]
+        pk_vals = tuple(p.strip() for p in rid.split(" / "))
+        nested_arr = _find_nested_array(pk)
         for el in ru_data.get("data", []):
             if not isinstance(el, dict):
                 continue
-            if [str(el.get(p, "")) for p in pk] == pk_vals:
-                el[field] = ru_value
-                with open(ru_path, "w", encoding="utf-8") as f:
-                    json.dump(ru_data, f, ensure_ascii=False, indent=2)
-                return True
+            if nested_arr and isinstance(el.get(nested_arr), list):
+                for sub in el[nested_arr]:
+                    if isinstance(sub, dict) and _build_flat_pk(pk, el, sub) == pk_vals:
+                        sub[field] = ru_value
+                        with open(ru_path, "w", encoding="utf-8") as f:
+                            json.dump(ru_data, f, ensure_ascii=False, indent=2)
+                        return True
+            else:
+                if _build_flat_pk(pk, el) == pk_vals:
+                    el[field] = ru_value
+                    with open(ru_path, "w", encoding="utf-8") as f:
+                        json.dump(ru_data, f, ensure_ascii=False, indent=2)
+                    return True
         return False
     tokens = key.split(".")
     if key in ru_data and isinstance(ru_data[key], str):
