@@ -62,7 +62,8 @@ CHARACTER_STYLES = {
     "{user}": "Мужской персонаж-продюсер. Игровой персонаж (Продюсер). Ученик отделения продюсеров: молодой взрослый/студенческий тон, расслабленный, но уважительный. В русском использовать мужской род.",
 }
 
-MASTERTRANS_ALLOWED_FIELDS = {"name", "title", "description", "text", "summary", "detail", "message", "flavor", "label", "displayname", "shortname", "help", "body", "produceconditiondescription", "content"}
+MASTERTRANS_ALLOWED_FIELDS = {"name", "title", "description", "text", "summary", "detail", "message", "flavor", "label", "displayname", "shortname", "help", "body", "produceconditiondescription", "content", "defaultname", "unlockdescription", "initialusername", "banwarningmessage"}
+MASTERTRANS_ALLOWED_LOWER = {f.lower() for f in MASTERTRANS_ALLOWED_FIELDS}
 CYRILLIC_RE = re.compile(r"[А-Яа-яЁё]")
 
 def is_mastertrans(data):
@@ -216,8 +217,9 @@ def load_json_entries(file_rel):
                     kp = _build_flat_pk(pk, el, sub)
                     rid = " / ".join(kp)
                     ru_sub = ru_by_pk.get(kp, {})
-                    for field in MASTERTRANS_ALLOWED_FIELDS:
-                        val = sub.get(field)
+                    for field, val in sub.items():
+                        if field.lower() not in MASTERTRANS_ALLOWED_LOWER:
+                            continue
                         if not isinstance(val, str) or not val:
                             continue
                         ru_val = ru_sub.get(field)
@@ -227,8 +229,9 @@ def load_json_entries(file_rel):
                 kp = _build_flat_pk(pk, el)
                 rid = " / ".join(kp)
                 ru_el = ru_by_pk.get(kp, {})
-                for field in MASTERTRANS_ALLOWED_FIELDS:
-                    val = el.get(field)
+                for field, val in el.items():
+                    if field.lower() not in MASTERTRANS_ALLOWED_LOWER:
+                        continue
                     if not isinstance(val, str) or not val:
                         continue
                     ru_val = ru_el.get(field)
