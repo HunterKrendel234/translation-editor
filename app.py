@@ -272,38 +272,6 @@ def load_resource_entries(file_rel):
             entries.append({"key": key, "en": en_text, "ru": ru_text_val, "speaker": speaker, "line_index": i, "text_index": text_index})
     return entries, None
 
-def load_resource_entries_robust(file_rel):
-    en_path = os.path.join(EN_REPO, file_rel.replace("/", os.sep))
-    ru_path = os.path.join(RU_REPO, file_rel.replace("/", os.sep))
-    if not os.path.exists(en_path):
-        return None, "EN file not found"
-    with open(en_path, "r", encoding="utf-8-sig") as f:
-        en_text = f.read()
-    ru_text = ""
-    if os.path.exists(ru_path):
-        with open(ru_path, "r", encoding="utf-8-sig") as f:
-            ru_text = f.read()
-    entries = []
-    text_re = re.compile(r"(\btext=)(.*?)(?=\s+[A-Za-z_][A-Za-z0-9_]*=|])", re.S)
-    name_re = re.compile(r"\[message[^\]]*?\bname=([^\]]+?)(?:\s+\S+=|])")
-    en_by_line = {}
-    ru_by_line = {}
-    for m in text_re.finditer(en_text):
-        li = en_text.count("\n", 0, m.start())
-        en_by_line.setdefault(li, []).append(m.group(2))
-    for m in text_re.finditer(ru_text):
-        li = ru_text.count("\n", 0, m.start())
-        ru_by_line.setdefault(li, []).append(m.group(2))
-    for i, line in enumerate(en_text.split("\n")):
-        speaker = name_re.search(line)
-        speaker = speaker.group(1).strip() if speaker else ""
-        en_matches = en_by_line.get(i, [])
-        ru_matches = ru_by_line.get(i, [])
-        for text_index, en_val in enumerate(en_matches):
-            key = f"line_{i}" if text_index == 0 else f"line_{i}#{text_index}"
-            entries.append({"key": key, "en": en_val, "ru": ru_matches[text_index] if text_index < len(ru_matches) else "", "speaker": speaker, "line_index": i, "text_index": text_index})
-    return entries, None
-
 def update_json_entry(file_rel, key, ru_value):
     ru_path = os.path.join(RU_REPO, file_rel.replace("/", os.sep))
     ru_dir = os.path.dirname(ru_path)
@@ -438,7 +406,7 @@ def build_search_index():
     for cat, file_list in cats.items():
         for f in file_list:
             if f["rel"].endswith(".txt"):
-                entries, err = load_resource_entries_robust(f["rel"])
+                entries, err = load_resource_entries(f["rel"])
             else:
                 entries, err = load_json_entries(f["rel"])
             if err or not entries:
@@ -482,7 +450,7 @@ def update_search_index_file(file_rel):
             if cat:
                 break
         if file_rel.endswith(".txt"):
-            entries, err = load_resource_entries_robust(file_rel)
+            entries, err = load_resource_entries(file_rel)
         else:
             entries, err = load_json_entries(file_rel)
         if err or not entries:
@@ -984,7 +952,7 @@ def translate_text_safe(text):
 
 def process_translation_file(file_rel):
     if file_rel.endswith(".txt"):
-        entries, err = load_resource_entries_robust(file_rel)
+        entries, err = load_resource_entries(file_rel)
         is_txt = True
     else:
         entries, err = load_json_entries(file_rel)
@@ -1130,7 +1098,7 @@ def api_entries():
     file_path = request.args.get("path", "")
     cat = request.args.get("cat", "UI")
     if file_path.endswith(".txt"):
-        entries, err = load_resource_entries_robust(file_path)
+        entries, err = load_resource_entries(file_path)
     else:
         entries, err = load_json_entries(file_path)
     if err:
